@@ -72,3 +72,8 @@ public:
         return position;
     }
 };
+
+int main(){
+    Snake s = Snake;
+    s.Draw();
+}
