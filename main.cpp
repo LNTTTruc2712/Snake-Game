@@ -5,6 +5,14 @@
 
 using namespace std;
 
+static bool allowMove = false;
+Color green = {173, 204, 96, 255};
+Color darkGreen = {43, 51, 24, 255};
+
+int cellSize = 30;
+int cellCount = 25;
+int offset = 75;
+
 class Snake {
 public:
     // first appearance
