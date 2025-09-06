@@ -32,33 +32,69 @@ bool eventTriggered(double interval) {
 
 class Snake {
 public:
-    // first appearance
-    deque <Vector2> body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
+    deque<Vector2> body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
     Vector2 direction = {1, 0};
-    bool addSegment = false;
+    int segmentsToAdd = 0;
 
-    void Draw() {
-        for (unsigned int i = 0; i < body.size(); i++) {
-            float x = body[i].x;
-            float y = body[i].y;
-            Rectangle segment = Rectangle{offset + x * cellSize, offset + y * cellSize, (float) cellSize,
-                                          (float) cellSize};
-            DrawRectangleRounded(segment, 0.5, 6, darkGreen);
+    void Draw(bool alive = true) {
+        for (int i = 0; i < body.size(); i++) {
+            int x = offset + body[i].x * cellSize + cellSize / 2;
+            int y = offset + body[i].y * cellSize + cellSize / 2;
+
+            if (i == 0) {
+                Color headColor = alive ? Color{255, 182, 193, 255} : Color{255, 105, 180, 255};
+                DrawCircle(x, y, cellSize / 2, headColor);
+                DrawCircleLines(x, y, cellSize / 2, BLACK);
+
+                if (alive) {
+                    // mắt
+                    DrawCircle(x - 6, y - 5, 6, WHITE);
+                    DrawCircle(x - 6, y - 5, 3, BLACK);
+                    DrawCircle(x + 6, y - 5, 6, WHITE);
+                    DrawCircle(x + 6, y - 5, 3, BLACK);
+                    // miệng
+                    DrawLine(x - 3, y + 5, x + 3, y + 5, RED);
+                } else {
+                    DrawText(">", x - 10, y - 10, 20, BLACK);
+                    DrawText("<", x, y - 10, 20, BLACK);
+                    DrawLine(x - 4, y + 8, x + 4, y + 8, RED);
+                }
+            } else {
+                Color bodyColor = (i % 2 == 0) ? Color{255, 182, 193, 255} : Color{255, 105, 180, 255};
+                DrawCircle(x, y, cellSize / 2, bodyColor);
+                DrawCircleLines(x, y, cellSize / 2, BLACK);
+            }
         }
     }
 
-    void Update() {
-        body.push_front(Vector2Add(body[0], direction));
-        if (addSegment == true) {
-            addSegment = false;
+    int Update(int cellCount, int lives) {
+        Vector2 newHead = Vector2Add(body[0], direction);
+
+        // Va chạm tường
+        if (newHead.x < 0 || newHead.x >= cellCount ||
+            newHead.y < 0 || newHead.y >= cellCount) {
+            return (lives <= 1) ? 1 : 2;
+        }
+
+        // Cắn thân
+        if (ElementInDeque(newHead, body)) {
+            return (lives <= 1) ? 1 : 2;
+        }
+
+        // Di chuyển bình thường
+        body.push_front(newHead);
+        if (segmentsToAdd > 0) {
+            segmentsToAdd--;
         } else {
             body.pop_back();
         }
+        return 0;
     }
 
     void Reset() {
-        body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
+        body = {Vector2{5, 9}, Vector2{4, 9}, Vector2{3, 9}};
         direction = {1, 0};
+        segmentsToAdd = 0;
     }
 };
 
