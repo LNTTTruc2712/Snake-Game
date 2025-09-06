@@ -33,7 +33,7 @@ bool eventTriggered(double interval) {
 class Snake {
 public:
     // first appearance
-    deque <Vector2> body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
+    deque<Vector2> body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
     Vector2 direction = {1, 0};
     bool addSegment = false;
 
@@ -67,7 +67,7 @@ public:
     Vector2 position;
     Texture2D texture;
 
-    Food(deque <Vector2> snakeBody) {
+    Food(deque<Vector2> snakeBody) {
         Image image = LoadImage("Graphics/food.png");
         texture = LoadTextureFromImage(image);
         UnloadImage(image);
@@ -89,7 +89,7 @@ public:
         return Vector2{x, y};
     }
 
-    Vector2 GenerateRandomPos(deque <Vector2> snakeBody) {
+    Vector2 GenerateRandomPos(deque<Vector2> snakeBody) {
         Vector2 position = GenerateRandomCell();
         while (ElementInDeque(position, snakeBody)) {
             position = GenerateRandomCell();
@@ -98,8 +98,7 @@ public:
     }
 };
 
-class Game
-{
+class Game {
 public:
     Snake snake = Snake();
     Food food = Food(snake.body);
@@ -108,30 +107,25 @@ public:
     Sound eatSound;
     Sound wallSound;
 
-    Game()
-    {
+    Game() {
         InitAudioDevice();
         eatSound = LoadSound("Sounds/eat.mp3");
         wallSound = LoadSound("Sounds/wall.mp3");
     }
 
-    ~Game()
-    {
+    ~Game() {
         UnloadSound(eatSound);
         UnloadSound(wallSound);
         CloseAudioDevice();
     }
 
-    void Draw()
-    {
+    void Draw() {
         food.Draw();
         snake.Draw();
     }
 
-    void Update()
-    {
-        if (running)
-        {
+    void Update() {
+        if (running) {
             snake.Update();
             CheckCollisionWithFood();
             CheckCollisionWithEdges();
@@ -139,10 +133,8 @@ public:
         }
     }
 
-    void CheckCollisionWithFood()
-    {
-        if (Vector2Equals(snake.body[0], food.position))
-        {
+    void CheckCollisionWithFood() {
+        if (Vector2Equals(snake.body[0], food.position)) {
             food.position = food.GenerateRandomPos(snake.body);
             snake.addSegment = true;
             score++;
@@ -150,20 +142,16 @@ public:
         }
     }
 
-    void CheckCollisionWithEdges()
-    {
-        if (snake.body[0].x == cellCount || snake.body[0].x == -1)
-        {
+    void CheckCollisionWithEdges() {
+        if (snake.body[0].x == cellCount || snake.body[0].x == -1) {
             GameOver();
         }
-        if (snake.body[0].y == cellCount || snake.body[0].y == -1)
-        {
+        if (snake.body[0].y == cellCount || snake.body[0].y == -1) {
             GameOver();
         }
     }
 
-    void GameOver()
-    {
+    void GameOver() {
         snake.Reset();
         food.position = food.GenerateRandomPos(snake.body);
         running = false;
@@ -171,18 +159,115 @@ public:
         PlaySound(wallSound);
     }
 
-    void CheckCollisionWithTail()
-    {
+    void CheckCollisionWithTail() {
         deque<Vector2> headlessBody = snake.body;
         headlessBody.pop_front();
-        if (ElementInDeque(snake.body[0], headlessBody))
-        {
+        if (ElementInDeque(snake.body[0], headlessBody)) {
             GameOver();
         }
     }
 };
 
-int main(){
-    Snake s = Snake;
-    s.Draw();
+int main() {
+    cout << "Starting the game..." << endl;
+
+    InitWindow(2 * offset + cellSize * cellCount,
+               2 * offset + cellSize * cellCount,
+               "Snake Game");
+
+    SetTargetFPS(60);
+    Game game = Game();
+
+    Font font = LoadFont("../Fonts/static/Roboto-Italic.ttf");
+    while (!WindowShouldClose()) {
+        BeginDrawing();
+        double interval = 0.3;
+
+        if (game.running) {
+            if (IsKeyPressed(KEY_UP) && game.snake.direction.y != 1) {
+                game.snake.direction = {0, -1};
+            } else if (IsKeyDown(KEY_UP) && game.snake.direction.y == -1) {
+                interval = 0.1;
+            }
+
+            if (IsKeyPressed(KEY_DOWN) && game.snake.direction.y != -1) {
+                game.snake.direction = {0, 1};
+            } else if (IsKeyDown(KEY_DOWN) && game.snake.direction.y == 1) {
+                interval = 0.1;
+            }
+
+            if (IsKeyPressed(KEY_LEFT) && game.snake.direction.x != 1) {
+                game.snake.direction = {-1, 0};
+            } else if (IsKeyDown(KEY_LEFT) && game.snake.direction.x == -1) {
+                interval = 0.1;
+            }
+
+            if (IsKeyPressed(KEY_RIGHT) && game.snake.direction.x != -1) {
+                game.snake.direction = {1, 0};
+            } else if (IsKeyDown(KEY_RIGHT) && game.snake.direction.x == 1) {
+                interval = 0.1;
+            }
+        }
+
+        if (eventTriggered(interval)) {
+            game.Update();
+        }
+
+        if (IsKeyPressed(KEY_P) && game.running) {
+            game.paused = !game.paused;
+        }
+
+        ClearBackground(darkNavy);
+        DrawRectangleGradientV(
+                0, 0,
+                GetScreenWidth(), GetScreenHeight(),
+                SKYBLUE, DARKBLUE
+        );
+
+        DrawRectangleLinesEx(Rectangle{float(offset - 5), float(offset - 5),
+                                       float(cellSize * cellCount + 10),
+                                       float(cellSize * cellCount + 10)}, 5, WHITE);
+
+        DrawTextEx(font, TextFormat("Score: %i", game.score), Vector2{20, 20}, 32, 2, RED);
+
+        const char *missMsg = TextFormat("Miss: %i / 5", game.missCount);
+        int fontSize = 32;
+        Vector2 textSize = MeasureTextEx(font, missMsg, fontSize, 2);
+
+        float x = GetScreenWidth() / 2 - textSize.x / 2;
+        float y = 20;
+        DrawTextEx(font, missMsg, Vector2{x, y}, fontSize, 2, RED);
+
+        const char *livesMsg = TextFormat("Lives: %i", game.lives);
+        DrawTextEx(font, livesMsg, Vector2{float(GetScreenWidth()) - 200, 20}, 32, 2, BLUE);
+
+        game.Draw();
+
+        if (!game.running && game.lives <= 0) {
+            DrawText("GAME OVER - Press ENTER OR SPACE to restart", 100, 200, 30, RED);
+
+            if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
+                game.snake.Reset();
+                game.score = 0;
+                game.missCount = 0;
+                game.lives = 1;
+                game.running = true;
+                game.paused = false;
+                game.food.Respawn(game.snake.body);
+            }
+        } else if (game.paused) {
+            const char *msg = "PAUSED - Press P to continue";
+            int fontSize = 30;
+            int textWidth = MeasureText(msg, fontSize);
+            int x = GetScreenWidth() / 2 - textWidth / 2;
+            int y = GetScreenHeight() / 2 - fontSize / 2;
+            DrawText(msg, x, y, fontSize, BLUE);
+        }
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+    return 0;
+
 }
