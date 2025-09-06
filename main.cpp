@@ -32,55 +32,140 @@ bool eventTriggered(double interval) {
 
 class Snake {
 public:
-    // first appearance
     deque<Vector2> body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
     Vector2 direction = {1, 0};
-    bool addSegment = false;
+    int segmentsToAdd = 0;
 
-    void Draw() {
-        for (unsigned int i = 0; i < body.size(); i++) {
-            float x = body[i].x;
-            float y = body[i].y;
-            Rectangle segment = Rectangle{offset + x * cellSize, offset + y * cellSize, (float) cellSize,
-                                          (float) cellSize};
-            DrawRectangleRounded(segment, 0.5, 6, darkGreen);
+    void Draw(bool alive = true) {
+        for (int i = 0; i < body.size(); i++) {
+            int x = offset + body[i].x * cellSize + cellSize / 2;
+            int y = offset + body[i].y * cellSize + cellSize / 2;
+
+            if (i == 0) {
+                Color headColor = alive ? Color{255, 182, 193, 255} : Color{255, 105, 180, 255};
+                DrawCircle(x, y, cellSize / 2, headColor);
+                DrawCircleLines(x, y, cellSize / 2, BLACK);
+
+                if (alive) {
+                    // mắt
+                    DrawCircle(x - 6, y - 5, 6, WHITE);
+                    DrawCircle(x - 6, y - 5, 3, BLACK);
+                    DrawCircle(x + 6, y - 5, 6, WHITE);
+                    DrawCircle(x + 6, y - 5, 3, BLACK);
+                    // miệng
+                    DrawLine(x - 3, y + 5, x + 3, y + 5, RED);
+                } else {
+                    DrawText(">", x - 10, y - 10, 20, BLACK);
+                    DrawText("<", x, y - 10, 20, BLACK);
+                    DrawLine(x - 4, y + 8, x + 4, y + 8, RED);
+                }
+            } else {
+                Color bodyColor = (i % 2 == 0) ? Color{255, 182, 193, 255} : Color{255, 105, 180, 255};
+                DrawCircle(x, y, cellSize / 2, bodyColor);
+                DrawCircleLines(x, y, cellSize / 2, BLACK);
+            }
         }
     }
 
-    void Update() {
-        body.push_front(Vector2Add(body[0], direction));
-        if (addSegment == true) {
-            addSegment = false;
+    int Update(int cellCount, int lives) {
+        Vector2 newHead = Vector2Add(body[0], direction);
+
+        // Va chạm tường
+        if (newHead.x < 0 || newHead.x >= cellCount ||
+            newHead.y < 0 || newHead.y >= cellCount) {
+            return (lives <= 1) ? 1 : 2;
+        }
+
+        // Cắn thân
+        if (ElementInDeque(newHead, body)) {
+            return (lives <= 1) ? 1 : 2;
+        }
+
+        // Di chuyển bình thường
+        body.push_front(newHead);
+        if (segmentsToAdd > 0) {
+            segmentsToAdd--;
         } else {
             body.pop_back();
         }
+        return 0;
     }
 
     void Reset() {
-        body = {Vector2{6, 9}, Vector2{5, 9}, Vector2{4, 9}};
+        body = {Vector2{5, 9}, Vector2{4, 9}, Vector2{3, 9}};
         direction = {1, 0};
+        segmentsToAdd = 0;
     }
+};
+
+enum class FruitType {
+    APPLE,
+    BANANA,
+    STRAWBERRY,
+    CHERRY
 };
 
 class Food {
 public:
     Vector2 position;
     Texture2D texture;
+    bool loaded = false;
+    double spawnTime = 0;
+    FruitType type;   // loại quả
 
     Food(deque<Vector2> snakeBody) {
-        Image image = LoadImage("Graphics/food.png");
-        texture = LoadTextureFromImage(image);
-        UnloadImage(image);
-        position = GenerateRandomPos(snakeBody);
+        Respawn(snakeBody);
     }
 
-    // destruct
     ~Food() {
-        UnloadTexture(texture);
+        if (loaded) {
+            UnloadTexture(texture);
+        }
+    }
+
+    void Respawn(deque<Vector2> snakeBody) {
+        if (loaded) {
+            UnloadTexture(texture);
+            loaded = false;
+        }
+
+        // random loại quả
+        int fruitIndex = GetRandomValue(0, 3);
+        type = static_cast<FruitType>(fruitIndex);
+
+        // chọn hình phù hợp
+        const char* imagePath = "";
+        switch (type) {
+            case FruitType::APPLE:      imagePath = "../Pic/apple.png"; break;
+            case FruitType::BANANA:     imagePath = "../Pic/banana.png"; break;
+            case FruitType::STRAWBERRY: imagePath = "../Pic/strawberry.png"; break;
+            case FruitType::CHERRY:     imagePath = "../Pic/cherry.png"; break;
+        }
+
+        Image image = LoadImage(imagePath);
+        ImageResize(&image, cellSize, cellSize);
+        texture = LoadTextureFromImage(image);
+        UnloadImage(image);
+        loaded = true;
+
+        position = GenerateRandomPos(snakeBody);
+        spawnTime = GetTime();
+    }
+
+    int GetScore() {
+        switch (type) {
+            case FruitType::APPLE: return 1;
+            case FruitType::BANANA: return 2;
+            case FruitType::STRAWBERRY: return 3;
+            case FruitType::CHERRY: return 5;
+        }
+        return 1;
     }
 
     void Draw() {
-        DrawTexture(texture, offset + position.x * cellSize, offset + position.y * cellSize, WHITE);
+        if (loaded) {
+            DrawTexture(texture, offset + position.x * cellSize, offset + position.y * cellSize, WHITE);
+        }
     }
 
     Vector2 GenerateRandomCell() {
@@ -90,11 +175,11 @@ public:
     }
 
     Vector2 GenerateRandomPos(deque<Vector2> snakeBody) {
-        Vector2 position = GenerateRandomCell();
-        while (ElementInDeque(position, snakeBody)) {
-            position = GenerateRandomCell();
+        Vector2 pos = GenerateRandomCell();
+        while (ElementInDeque(pos, snakeBody)) {
+            pos = GenerateRandomCell();
         }
-        return position;
+        return pos;
     }
 };
 
@@ -103,67 +188,65 @@ public:
     Snake snake = Snake();
     Food food = Food(snake.body);
     bool running = true;
+    bool paused = false;
     int score = 0;
-    Sound eatSound;
-    Sound wallSound;
-
-    Game() {
-        InitAudioDevice();
-        eatSound = LoadSound("Sounds/eat.mp3");
-        wallSound = LoadSound("Sounds/wall.mp3");
-    }
-
-    ~Game() {
-        UnloadSound(eatSound);
-        UnloadSound(wallSound);
-        CloseAudioDevice();
-    }
+    int missCount = 0;
+    int lives = 1;
 
     void Draw() {
         food.Draw();
-        snake.Draw();
+        snake.Draw(running);
     }
 
     void Update() {
-        if (running) {
-            snake.Update();
+        if (running && !paused) {
+            int collision = snake.Update(cellCount, lives);
+
+            if (collision == 1) {
+                GameOver();
+                return;
+            } else if (collision == 2) {
+                GameOver();
+                return;
+            }
+
+            // Ăn trái cây
             CheckCollisionWithFood();
-            CheckCollisionWithEdges();
-            CheckCollisionWithTail();
+
+            // Check miss
+            double foodLifetime = 10.0;
+            if (score >= 32) {
+                foodLifetime = 6.0;
+            } else if (score >= 15) {
+                foodLifetime = 8.0;
+            }
+
+            if (GetTime() - food.spawnTime >= foodLifetime) {
+                missCount++;
+                food.Respawn(snake.body);
+                if (missCount >= 5) {
+                    GameOver();
+                }
+            }
         }
     }
 
     void CheckCollisionWithFood() {
         if (Vector2Equals(snake.body[0], food.position)) {
-            food.position = food.GenerateRandomPos(snake.body);
-            snake.addSegment = true;
-            score++;
-            PlaySound(eatSound);
-        }
-    }
-
-    void CheckCollisionWithEdges() {
-        if (snake.body[0].x == cellCount || snake.body[0].x == -1) {
-            GameOver();
-        }
-        if (snake.body[0].y == cellCount || snake.body[0].y == -1) {
-            GameOver();
+            int gained = food.GetScore();
+            score += gained;
+            snake.segmentsToAdd += gained;
+            food.Respawn(snake.body);
         }
     }
 
     void GameOver() {
-        snake.Reset();
-        food.position = food.GenerateRandomPos(snake.body);
-        running = false;
-        score = 0;
-        PlaySound(wallSound);
-    }
-
-    void CheckCollisionWithTail() {
-        deque<Vector2> headlessBody = snake.body;
-        headlessBody.pop_front();
-        if (ElementInDeque(snake.body[0], headlessBody)) {
-            GameOver();
+        lives--;
+        if (lives <= 0) {
+            running = false;
+        } else {
+            running = true;
+            paused = false;
         }
     }
 };
