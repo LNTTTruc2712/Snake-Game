@@ -105,26 +105,67 @@ enum class FruitType {
     CHERRY
 };
 
-
 class Food {
 public:
     Vector2 position;
     Texture2D texture;
+    bool loaded = false;
+    double spawnTime = 0;
+    FruitType type;   // loại quả
 
-    Food(deque <Vector2> snakeBody) {
-        Image image = LoadImage("Graphics/food.png");
-        texture = LoadTextureFromImage(image);
-        UnloadImage(image);
-        position = GenerateRandomPos(snakeBody);
+    Food(deque<Vector2> snakeBody) {
+        Respawn(snakeBody);
     }
 
-    // destruct
     ~Food() {
-        UnloadTexture(texture);
+        if (loaded) {
+            UnloadTexture(texture);
+        }
+    }
+
+    void Respawn(deque<Vector2> snakeBody) {
+        if (loaded) {
+            UnloadTexture(texture);
+            loaded = false;
+        }
+
+        // random loại quả
+        int fruitIndex = GetRandomValue(0, 3);
+        type = static_cast<FruitType>(fruitIndex);
+
+        // chọn hình phù hợp
+        const char* imagePath = "";
+        switch (type) {
+            case FruitType::APPLE:      imagePath = "../Pic/apple.png"; break;
+            case FruitType::BANANA:     imagePath = "../Pic/banana.png"; break;
+            case FruitType::STRAWBERRY: imagePath = "../Pic/strawberry.png"; break;
+            case FruitType::CHERRY:     imagePath = "../Pic/cherry.png"; break;
+        }
+
+        Image image = LoadImage(imagePath);
+        ImageResize(&image, cellSize, cellSize);
+        texture = LoadTextureFromImage(image);
+        UnloadImage(image);
+        loaded = true;
+
+        position = GenerateRandomPos(snakeBody);
+        spawnTime = GetTime();
+    }
+
+    int GetScore() {
+        switch (type) {
+            case FruitType::APPLE: return 1;
+            case FruitType::BANANA: return 2;
+            case FruitType::STRAWBERRY: return 3;
+            case FruitType::CHERRY: return 5;
+        }
+        return 1;
     }
 
     void Draw() {
-        DrawTexture(texture, offset + position.x * cellSize, offset + position.y * cellSize, WHITE);
+        if (loaded) {
+            DrawTexture(texture, offset + position.x * cellSize, offset + position.y * cellSize, WHITE);
+        }
     }
 
     Vector2 GenerateRandomCell() {
@@ -133,12 +174,12 @@ public:
         return Vector2{x, y};
     }
 
-    Vector2 GenerateRandomPos(deque <Vector2> snakeBody) {
-        Vector2 position = GenerateRandomCell();
-        while (ElementInDeque(position, snakeBody)) {
-            position = GenerateRandomCell();
+    Vector2 GenerateRandomPos(deque<Vector2> snakeBody) {
+        Vector2 pos = GenerateRandomCell();
+        while (ElementInDeque(pos, snakeBody)) {
+            pos = GenerateRandomCell();
         }
-        return position;
+        return pos;
     }
 };
 
