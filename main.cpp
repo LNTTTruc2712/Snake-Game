@@ -183,86 +183,70 @@ public:
     }
 };
 
-class Game
-{
+class Game {
 public:
     Snake snake = Snake();
     Food food = Food(snake.body);
     bool running = true;
+    bool paused = false;
     int score = 0;
-    Sound eatSound;
-    Sound wallSound;
+    int missCount = 0;
+    int lives = 1;
 
-    Game()
-    {
-        InitAudioDevice();
-        eatSound = LoadSound("Sounds/eat.mp3");
-        wallSound = LoadSound("Sounds/wall.mp3");
-    }
-
-    ~Game()
-    {
-        UnloadSound(eatSound);
-        UnloadSound(wallSound);
-        CloseAudioDevice();
-    }
-
-    void Draw()
-    {
+    void Draw() {
         food.Draw();
-        snake.Draw();
+        snake.Draw(running);
     }
 
-    void Update()
-    {
-        if (running)
-        {
-            snake.Update();
+    void Update() {
+        if (running && !paused) {
+            int collision = snake.Update(cellCount, lives);
+
+            if (collision == 1) {
+                GameOver();
+                return;
+            } else if (collision == 2) {
+                GameOver();
+                return;
+            }
+
+            // Ăn trái cây
             CheckCollisionWithFood();
-            CheckCollisionWithEdges();
-            CheckCollisionWithTail();
+
+            // Check miss
+            double foodLifetime = 10.0;
+            if (score >= 32) {
+                foodLifetime = 6.0;
+            } else if (score >= 15) {
+                foodLifetime = 8.0;
+            }
+
+            if (GetTime() - food.spawnTime >= foodLifetime) {
+                missCount++;
+                food.Respawn(snake.body);
+                if (missCount >= 5) {
+                    GameOver();
+                }
+            }
         }
     }
 
-    void CheckCollisionWithFood()
-    {
-        if (Vector2Equals(snake.body[0], food.position))
-        {
-            food.position = food.GenerateRandomPos(snake.body);
-            snake.addSegment = true;
-            score++;
-            PlaySound(eatSound);
+    void CheckCollisionWithFood() {
+        if (Vector2Equals(snake.body[0], food.position)) {
+            int gained = food.GetScore();
+            score += gained;
+            snake.segmentsToAdd += gained;
+            food.Respawn(snake.body);
         }
     }
 
-    void CheckCollisionWithEdges()
-    {
-        if (snake.body[0].x == cellCount || snake.body[0].x == -1)
-        {
-            GameOver();
-        }
-        if (snake.body[0].y == cellCount || snake.body[0].y == -1)
-        {
-            GameOver();
-        }
-    }
-
-    void GameOver()
-    {
-        snake.Reset();
-        food.position = food.GenerateRandomPos(snake.body);
-        running = false;
-        score = 0;
-        PlaySound(wallSound);
-    }
-
-    void CheckCollisionWithTail()
-    {
-        deque<Vector2> headlessBody = snake.body;
-        headlessBody.pop_front();
-        if (ElementInDeque(snake.body[0], headlessBody))
-        {
-            GameOver();
+    void GameOver() {
+        lives--;
+        if (lives <= 0) {
+            running = false;
+        } else {
+            running = true;
+            paused = false;
         }
     }
 };
