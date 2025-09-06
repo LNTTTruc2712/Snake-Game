@@ -98,6 +98,14 @@ public:
     }
 };
 
+enum class FruitType {
+    APPLE,
+    BANANA,
+    STRAWBERRY,
+    CHERRY
+};
+
+
 class Food {
 public:
     Vector2 position;
